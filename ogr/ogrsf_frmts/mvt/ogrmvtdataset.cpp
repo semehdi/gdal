@@ -34,7 +34,6 @@
 #include <memory>
 #include <vector>
 #include <set>
-#include <iostream>
 
 const char *SRS_EPSG_3857 =
     "PROJCS[\"WGS 84 / Pseudo-Mercator\",GEOGCS[\"WGS "
