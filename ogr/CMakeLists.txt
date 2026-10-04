@@ -87,6 +87,7 @@ set(GDAL_DATA_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/data/pci_ellips.txt
     ${CMAKE_CURRENT_SOURCE_DIR}/data/stateplane.csv
     ${CMAKE_CURRENT_SOURCE_DIR}/data/ogr_fields_override.schema.json
+    ${CMAKE_CURRENT_SOURCE_DIR}/data/leaflet_mvt_template.html
 )
 set_property(
   TARGET ${GDAL_LIB_TARGET_NAME}

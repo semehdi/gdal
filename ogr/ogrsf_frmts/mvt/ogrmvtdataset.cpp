@@ -21,6 +21,7 @@
 #include "cpl_http.h"
 #include "ogr_p.h"
 #include "gdal_thread_pool.h"
+#include "commonutils.h"
 
 #include "mvt_tile.h"
 #include "mvtutils.h"
@@ -3504,6 +3505,8 @@ class OGRMVTWriterDataset final : public GDALDataset
 
     bool GenerateMetadata(size_t nLayers,
                           const std::map<CPLString, MVTLayerProperties> &oMap);
+    
+    void GenerateLeaflet();
 
   public:
     OGRMVTWriterDataset();
@@ -5499,6 +5502,7 @@ bool OGRMVTWriterDataset::CreateOutput()
         sqlite3_finalize(hInsertStmt);
 
     bRet &= GenerateMetadata(oSetLayers.size(), oMapLayerProps);
+    GenerateLeaflet();
 
     return bRet;
 }
@@ -5574,6 +5578,60 @@ static bool WriteMetadataItem(const char *pszKey, double dfValue,
     return WriteMetadataItemT(pszKey, dfValue, "%.17g", hDBMBTILES, oRoot);
 }
 
+void OGRMVTWriterDataset::GenerateLeaflet()
+{
+    if (const char *pszTemplate = CPLFindFile("gdal", "leaflet_mvt_template.html"))
+    {
+        const std::string osFilename(pszTemplate);
+        std::map<std::string, std::string> substs;
+
+        const std::string osTitle = "MVT Viewer";
+
+        const double dfCenterX = (m_oEnvelope.MinX + m_oEnvelope.MaxX) / 2;
+        const double dfCenterY = (m_oEnvelope.MinY + m_oEnvelope.MaxY) / 2;
+
+        // For tests
+        const char *pszFmt =
+            atoi(CPLGetConfigOption("GDAL_RASTER_TILE_HTML_PREC", "17")) == 10
+                ? "%.10g"
+                : "%.17g";
+
+        substs["double_quote_escaped_title"] =
+            CPLString(osTitle).replaceAll('"', "\\\"");
+        char *pszStr = CPLEscapeString(osTitle.c_str(), -1, CPLES_XML);
+        substs["xml_escaped_title"] = pszStr;
+        CPLFree(pszStr);
+        substs["south"] = CPLSPrintf(pszFmt, m_oEnvelope.MinY);
+        substs["west"] = CPLSPrintf(pszFmt, m_oEnvelope.MinX);
+        substs["north"] = CPLSPrintf(pszFmt, m_oEnvelope.MaxY);
+        substs["east"] = CPLSPrintf(pszFmt, m_oEnvelope.MaxX);
+        substs["centerlon"] = CPLSPrintf(pszFmt, dfCenterX);
+        substs["centerlat"] = CPLSPrintf(pszFmt, dfCenterY);
+        substs["minzoom"] = CPLSPrintf("%d", m_nMinZoom);
+        substs["maxzoom"] = CPLSPrintf("%d", m_nMaxZoom);
+        substs["beginzoom"] = CPLSPrintf("%d", m_nMaxZoom);
+
+        GByte *pabyRet = nullptr;
+        CPL_IGNORE_RET_VAL(VSIIngestFile(nullptr, osFilename.c_str(), &pabyRet,
+                                         nullptr, 10 * 1024 * 1024));
+        if (pabyRet)
+        {
+            CPLString osHTML(reinterpret_cast<char *>(pabyRet));
+            CPLFree(pabyRet);
+
+            ApplySubstitutions(osHTML, substs);
+
+            VSILFILE *f = VSIFOpenL(CPLFormFilenameSafe(GetDescription(), 
+                            "leaflet.html", nullptr).c_str(), "wb");
+            if (f)
+            {
+                VSIFWriteL(osHTML.data(), 1, osHTML.size(), f);
+                VSIFCloseL(f);
+            }
+        }
+    }
+}
+
 /************************************************************************/
 /*                          GenerateMetadata()                          */
 /************************************************************************/
@@ -5632,6 +5690,7 @@ bool OGRMVTWriterDataset::GenerateMetadata(
             delete poCT;
         }
     }
+
     const double dfCenterX = (m_oEnvelope.MinX + m_oEnvelope.MaxX) / 2;
     const double dfCenterY = (m_oEnvelope.MinY + m_oEnvelope.MaxY) / 2;
     CPLString osCenter(
