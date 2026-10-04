@@ -34,6 +34,7 @@
 #include <memory>
 #include <vector>
 #include <set>
+#include <iostream>
 
 const char *SRS_EPSG_3857 =
     "PROJCS[\"WGS 84 / Pseudo-Mercator\",GEOGCS[\"WGS "
@@ -5502,7 +5503,9 @@ bool OGRMVTWriterDataset::CreateOutput()
         sqlite3_finalize(hInsertStmt);
 
     bRet &= GenerateMetadata(oSetLayers.size(), oMapLayerProps);
-    GenerateLeaflet();
+
+    if (!m_hDBMBTILES)
+        GenerateLeaflet();
 
     return bRet;
 }
