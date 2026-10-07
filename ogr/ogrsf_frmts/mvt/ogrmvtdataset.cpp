@@ -5594,7 +5594,7 @@ void OGRMVTWriterDataset::GenerateLeaflet()
 
         // For tests
         const char *pszFmt =
-            atoi(CPLGetConfigOption("GDAL_RASTER_TILE_HTML_PREC", "17")) == 10
+            atoi(CPLGetConfigOption("MVT_RASTER_TILE_HTML_PREC", "17")) == 10
                 ? "%.10g"
                 : "%.17g";
 
